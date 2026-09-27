@@ -1,6 +1,6 @@
 # Character Sheet - Alternative Tech Stack Plans
 
-Both plans target a **Pathfinder 1e/2e Character Sheet** application with:
+Both plans target a **Pathfinder 1e Character Sheet** application with:
 - Dense, grid-based tabular layouts (like Roll20)
 - Auto-calculating fields (modifiers, BAB, saves, AC, CMB/CMD, etc.)
 - Repeating sections (classes, skills, weapons, spells)
