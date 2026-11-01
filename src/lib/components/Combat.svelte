@@ -46,11 +46,11 @@
 			<div class="grid grid-cols-4 gap-1">
 				<div>
 					<div class="stat-label">Melee (BAB + Str)</div>
-					<div class="readonly-field text-sm font-bold text-burgundy">{character.meleeAttackLine}</div>
+					<div class="readonly-field text-lg font-bold text-burgundy">{character.meleeAttackLine}</div>
 				</div>
 				<div>
 					<div class="stat-label">Ranged (BAB + Dex)</div>
-					<div class="readonly-field text-sm font-bold text-burgundy">{character.rangedAttackLine}</div>
+					<div class="readonly-field text-lg font-bold text-burgundy">{character.rangedAttackLine}</div>
 				</div>
 				<div>
 					<div class="stat-label">BAB</div>
@@ -93,9 +93,20 @@
 							</span>
 							<button class="btn-danger text-xs py-0.5 px-1.5" onclick={() => removeWeapon(weapon.id)}>✕ Remove</button>
 						</div>
+						<!-- Total attack bonus & damage, emphasized -->
+						<div class="px-1.5 py-1 border-b border-warm-200 bg-parchment-dark/40 grid grid-cols-2 gap-1.5 text-center">
+							<div>
+								<div class="text-[9px] font-semibold text-ink-light uppercase tracking-wider">Total Attack Bonus</div>
+								<div class="text-lg font-bold text-burgundy leading-tight">{attack?.attackLine ?? '—'}</div>
+							</div>
+							<div class="border-l border-warm-200">
+								<div class="text-[9px] font-semibold text-ink-light uppercase tracking-wider">Total Damage</div>
+								<div class="text-lg font-bold text-burgundy leading-tight">{attack?.damage ?? '—'}</div>
+							</div>
+						</div>
 						<div class="p-1.5">
 							<!-- Attack row -->
-							<div class="grid grid-cols-7 gap-1.5 text-xs">
+							<div class="grid grid-cols-6 gap-1.5 text-xs">
 								<div class="col-span-2">
 									<div class="stat-label">Weapon Name</div>
 									<input
@@ -117,10 +128,6 @@
 									</select>
 								</div>
 								<div>
-									<div class="stat-label">Attack Bonus</div>
-									<div class="readonly-field font-bold text-burgundy">{attack?.attackLine ?? '—'}</div>
-								</div>
-								<div>
 									<div class="stat-label">Atk Ability</div>
 									<select class="grid-input" bind:value={weapon.attackAbility}>
 										<option value="str">Str</option>
@@ -137,14 +144,10 @@
 								</div>
 							</div>
 							<!-- Damage & critical row -->
-							<div class="grid grid-cols-7 gap-1.5 text-xs mt-1">
+							<div class="grid grid-cols-6 gap-1.5 text-xs mt-1">
 								<div>
 									<div class="stat-label">Damage Dice</div>
 									<input type="text" class="grid-input" placeholder="1d8" bind:value={weapon.damageDice} />
-								</div>
-								<div>
-									<div class="stat-label">Damage</div>
-									<div class="readonly-field font-bold text-burgundy">{attack?.damage ?? '—'}</div>
 								</div>
 								<div>
 									<div class="stat-label">Dmg Ability</div>
