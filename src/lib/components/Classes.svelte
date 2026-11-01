@@ -1,11 +1,19 @@
 <script lang="ts">
 	import type { CharacterState } from '$lib/stores/character.svelte.ts';
+	import { classGroups, classNames, getClassPreset } from '$lib/data/classes';
 
 	interface Props {
 		character: CharacterState;
 	}
 
 	let { character }: Props = $props();
+
+	const CUSTOM = '__custom__';
+
+	/** A class row is "custom" when its name is not one of the known presets. */
+	function isCustom(name: string): boolean {
+		return name !== '' && !classNames.includes(name);
+	}
 
 	function addClass() {
 		character.data.classes.push({
@@ -22,6 +30,25 @@
 
 	function removeClass(index: number) {
 		character.data.classes.splice(index, 1);
+	}
+
+	/** Applies the chosen class: sets the name and fills in the class specs. */
+	function selectClass(index: number, value: string) {
+		const cls = character.data.classes[index];
+		if (value === CUSTOM) {
+			cls.name = 'Custom Class';
+			return;
+		}
+		const preset = getClassPreset(value);
+		cls.name = value;
+		if (preset) {
+			cls.hdSize = preset.hdSize;
+			cls.babProgression = preset.babProgression;
+			cls.fortProgression = preset.fortProgression;
+			cls.refProgression = preset.refProgression;
+			cls.willProgression = preset.willProgression;
+			cls.skillPointsPerLevel = preset.skillPointsPerLevel;
+		}
 	}
 </script>
 
@@ -44,8 +71,30 @@
 					<div class="p-1.5">
 						<div class="grid grid-cols-4 gap-1.5 text-xs">
 							<div>
-								<div class="stat-label">Name</div>
-								<input type="text" class="grid-input" placeholder="Fighter" bind:value={cls.name} />
+								<div class="stat-label">Class</div>
+								<select
+									class="grid-input"
+									value={isCustom(cls.name) ? CUSTOM : cls.name}
+									onchange={(e) => selectClass(i, e.currentTarget.value)}
+								>
+									<option value="">— Select class —</option>
+									{#each classGroups as group}
+										<optgroup label={group.label}>
+											{#each group.classes as preset}
+												<option value={preset.name}>{preset.name}</option>
+											{/each}
+										</optgroup>
+									{/each}
+									<option value={CUSTOM}>Custom…</option>
+								</select>
+								{#if isCustom(cls.name)}
+									<input
+										type="text"
+										class="grid-input mt-1"
+										placeholder="Custom class name"
+										bind:value={cls.name}
+									/>
+								{/if}
 							</div>
 							<div>
 								<div class="stat-label">Level</div>
@@ -93,6 +142,9 @@
 								<div class="stat-label">Skill Pts/Lvl</div>
 								<input type="number" class="grid-input" bind:value={cls.skillPointsPerLevel} min="0" max="10" />
 							</div>
+						</div>
+						<div class="text-2xs text-ink-light italic mt-1">
+							Picking a class fills in its hit die, BAB and saves automatically — you can still tweak them.
 						</div>
 					</div>
 				</div>
