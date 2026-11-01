@@ -2,9 +2,14 @@ import { calcModifier, calcBAB, calcCMB, calcCMD, calcSave,
 	calcTotalAC,
 	formatAttackLine,
 	formatDamage,
-	calcMeleeStrengthMultiplier
+	calcMeleeStrengthMultiplier,
+	calcSpellDC,
+	calcConcentrationDC,
+	calcTotalSpellRange
 } from '$lib/utils/math';
 import { createDefaultCharacter, type CharacterData } from '$lib/utils/persistence';
+import { castingClasses, type CastingClassInfo } from '$lib/data/spells';
+import { spellsPerDayTables, spellsKnownTables } from '$lib/data/spellsPerDay';
 import { skills as skillDefs, type SkillDefinition } from '$lib/data/skills';
 
 /**
@@ -80,6 +85,80 @@ export function createCharacterState(initial?: CharacterData) {
 		})
 	);
 
+	// --- Derived spellcasting ---
+	const detectedCastingClass = $derived(
+		data.classes.reduce<{ name: string; level: number; info: CastingClassInfo } | null>((best, cls) => {
+			const info = castingClasses[cls.name];
+			if (info && (!best || cls.level > best.level)) {
+				return { name: cls.name, level: cls.level, info };
+			}
+			return best;
+		}, null)
+	);
+	const castingAbility = $derived<'int' | 'wis' | 'cha'>(
+		data.spellcasting.ability === 'auto'
+			? (detectedCastingClass?.info.castingAbility ?? 'int')
+			: data.spellcasting.ability
+	);
+	const castingAbilityMod = $derived(
+		castingAbility === 'int' ? intMod : castingAbility === 'wis' ? wisMod : chaMod
+	);
+	const casterLevel = $derived(
+		(detectedCastingClass
+			? detectedCastingClass.info.progression === 'full'
+				? detectedCastingClass.level
+				: Math.max(0, detectedCastingClass.level - 3)
+			: 0) + data.spellcasting.miscCasterLevel
+	);
+	const concentrationTotal = $derived(casterLevel + castingAbilityMod);
+
+	// --- Derived spell totals ---
+	const spellTotals = $derived(
+		data.spells.map((spell) => {
+			return {
+				id: spell.id,
+				saveDC: calcSpellDC(spell.level, castingAbilityMod),
+				concentrationDC: calcConcentrationDC(spell.level),
+				totalRange: calcTotalSpellRange(spell.rangeBase, spell.rangePerLevel, casterLevel)
+			};
+		})
+	);
+
+	// --- Derived spells per day ---
+	const spellsPerDayInfo = $derived.by(() => {
+		if (!detectedCastingClass) return null;
+		const table = spellsPerDayTables[detectedCastingClass.name];
+		if (!table) return null;
+		const knownTable = spellsKnownTables[detectedCastingClass.name];
+		const classLevel = Math.min(Math.max(detectedCastingClass.level, 1), 20);
+		const row = table.rows[classLevel - 1];
+		const levels = row
+			.map((base, level) => {
+				const atWill = level === 0 && table.cantripsAtWill;
+				if (base < 0 && !atWill) return null;
+				// A high casting ability grants +1 bonus slot per spell level, 1st up to the modifier.
+				const bonus = level >= 1 && level <= castingAbilityMod ? 1 : 0;
+				return {
+					level,
+					atWill,
+					base: atWill ? 0 : base,
+					bonus: atWill ? 0 : bonus,
+					total: atWill ? 0 : base + bonus,
+					known: knownTable?.[classLevel - 1]?.[level] ?? -1,
+					saveDC: calcSpellDC(level, castingAbilityMod)
+				};
+			})
+			.filter((entry) => entry !== null);
+		const totalSlots = levels.reduce((sum, entry) => sum + entry.total, 0);
+		return {
+			className: detectedCastingClass.name,
+			classLevel,
+			hasKnownTable: knownTable !== undefined,
+			levels,
+			totalSlots
+		};
+	});
+
 	// --- Derived total HP from classes ---
 	const totalMaxHP = $derived(
 		data.classes.reduce((sum, cls) => {
@@ -126,6 +205,13 @@ export function createCharacterState(initial?: CharacterData) {
 		get meleeAttackLine() { return meleeAttackLine; },
 		get rangedAttackLine() { return rangedAttackLine; },
 		get weaponAttacks() { return weaponAttacks; },
+		get castingAbility() { return castingAbility; },
+		get castingAbilityMod() { return castingAbilityMod; },
+		get casterLevel() { return casterLevel; },
+		get concentrationTotal() { return concentrationTotal; },
+		get detectedCastingClassName() { return detectedCastingClass?.name ?? ''; },
+		get spellTotals() { return spellTotals; },
+		get spellsPerDayInfo() { return spellsPerDayInfo; },
 		get totalMaxHP() { return totalMaxHP; },
 		get skillTotals() { return skillTotals; },
 	};

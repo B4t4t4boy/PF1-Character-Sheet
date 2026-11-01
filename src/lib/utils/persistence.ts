@@ -29,6 +29,47 @@ export interface WeaponData {
 	notes: string;
 }
 
+/**
+ * A single spell card on the Spells tab, following the PF1 spell statblock.
+ */
+export interface SpellData {
+	id: string;
+	name: string;
+	/** 0 (cantrip/orison) through 9. */
+	level: number;
+	school: string;
+	/** Subschool and descriptors, e.g. "fire", "mind-affecting". */
+	subschoolDescriptors: string;
+	/** e.g. "V, S, M (a pinch of sulfur)". */
+	components: string;
+	/** e.g. "1 standard action". */
+	castingTime: string;
+	/** Range increase per caster level, in meters. */
+	rangePerLevel: number;
+	/** Raw base range in meters; total range = raw + per level × caster level. */
+	rangeBase: number;
+	/** Targets line, e.g. "one creature/level". */
+	targets: string;
+	/** Area line, e.g. "20-ft.-radius burst". */
+	area: string;
+	/** Effect line, e.g. "ray". */
+	effect: string;
+	/** e.g. "instantaneous", "1 round/level". */
+	duration: string;
+	/** e.g. "Reflex half", "Will negates", "none". */
+	savingThrow: string;
+	spellResistance: boolean;
+	description: string;
+}
+
+/** Spellcasting settings for the Spells tab. */
+export interface SpellcastingData {
+	/** 'auto' derives the casting ability from the character's casting class. */
+	ability: 'auto' | 'int' | 'wis' | 'cha';
+	/** Bonus caster levels from items, feats, etc. */
+	miscCasterLevel: number;
+}
+
 export interface CharacterData {
 	characterName: string;
 	classLevel: string;
@@ -88,13 +129,8 @@ export interface CharacterData {
 		skillPointsPerLevel: number;
 	}>;
 	weapons: WeaponData[];
-	spells: Array<{
-		level: number;
-		name: string;
-		prepared: number;
-		used: number;
-		dc: number;
-	}>;
+	spells: SpellData[];
+	spellcasting: SpellcastingData;
 	inventory: Array<{
 		name: string;
 		qty: number;
@@ -144,6 +180,7 @@ export function createDefaultCharacter(): CharacterData {
 		classes: [],
 		weapons: [],
 		spells: [],
+		spellcasting: { ability: 'auto', miscCasterLevel: 0 },
 		inventory: [],
 		feats: [],
 		specialAbilities: [],
@@ -151,16 +188,16 @@ export function createDefaultCharacter(): CharacterData {
 	};
 }
 
-function newWeaponId(): string {
+function newId(): string {
 	return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
 		? crypto.randomUUID()
-		: `w-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+		: `id-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 /** Creates a blank weapon row with sensible defaults for its attack type. */
 export function createDefaultWeapon(attackType: 'melee' | 'ranged'): WeaponData {
 	return {
-		id: newWeaponId(),
+		id: newId(),
 		name: '',
 		attackType,
 		attackAbility: attackType === 'melee' ? 'str' : 'dex',
@@ -177,6 +214,28 @@ export function createDefaultWeapon(attackType: 'melee' | 'ranged'): WeaponData 
 	};
 }
 
+/** Creates a blank spell card with typical PF1 statblock defaults. */
+export function createDefaultSpell(): SpellData {
+	return {
+		id: newId(),
+		name: '',
+		level: 1,
+		school: '',
+		subschoolDescriptors: '',
+		components: 'V, S',
+		castingTime: '1 standard action',
+		rangePerLevel: 3,
+		rangeBase: 30,
+		targets: '',
+		area: '',
+		effect: '',
+		duration: '',
+		savingThrow: '',
+		spellResistance: false,
+		description: ''
+	};
+}
+
 function asNumber(value: unknown, fallback: number): number {
 	return typeof value === 'number' && !Number.isNaN(value) ? value : fallback;
 }
@@ -190,7 +249,7 @@ function normalizeWeapon(raw: Record<string, unknown>): WeaponData {
 	const attackType = raw.attackType === 'ranged' ? 'ranged' : 'melee';
 	const legacyRange = parseInt(asString(raw.range, ''), 10);
 	return {
-		id: asString(raw.id, '') || newWeaponId(),
+		id: asString(raw.id, '') || newId(),
 		name: asString(raw.name, ''),
 		attackType,
 		attackAbility: raw.attackAbility === 'dex' || raw.attackAbility === 'str'
@@ -217,13 +276,47 @@ function normalizeWeapon(raw: Record<string, unknown>): WeaponData {
 	};
 }
 
+/** Upgrades a persisted spell (possibly from an older schema) to the current SpellData shape. */
+function normalizeSpell(raw: Record<string, unknown>): SpellData {
+	return {
+		id: asString(raw.id, '') || newId(),
+		name: asString(raw.name, ''),
+		level: asNumber(raw.level, 1),
+		school: asString(raw.school, ''),
+		subschoolDescriptors: asString(raw.subschoolDescriptors, ''),
+		components: asString(raw.components, '') || 'V, S',
+		castingTime: asString(raw.castingTime, '') || '1 standard action',
+		rangePerLevel: asNumber(raw.rangePerLevel, 3),
+		rangeBase: asNumber(raw.rangeBase, 30),
+		targets: asString(raw.targets, ''),
+		area: asString(raw.area, ''),
+		effect: asString(raw.effect, ''),
+		duration: asString(raw.duration, ''),
+		savingThrow: asString(raw.savingThrow, ''),
+		spellResistance: raw.spellResistance === true,
+		description: asString(raw.description, '')
+	};
+}
+
 /** Normalizes loaded/imported data so older saves keep working with the current schema. */
 export function normalizeCharacterData(data: CharacterData): CharacterData {
+	const raw = data as unknown as Record<string, unknown>;
+	const spellcasting = raw.spellcasting as Record<string, unknown> | undefined;
+	const ability = spellcasting?.ability;
 	return {
 		...data,
 		weapons: (Array.isArray(data.weapons) ? data.weapons : []).map(
 			(w) => normalizeWeapon(w as unknown as Record<string, unknown>)
-		)
+		),
+		spells: (Array.isArray(data.spells) ? data.spells : []).map(
+			(s) => normalizeSpell(s as unknown as Record<string, unknown>)
+		),
+		spellcasting: {
+			ability: ability === 'auto' || ability === 'int' || ability === 'wis' || ability === 'cha'
+				? ability
+				: 'auto',
+			miscCasterLevel: asNumber(spellcasting?.miscCasterLevel, 0)
+		}
 	};
 }
 

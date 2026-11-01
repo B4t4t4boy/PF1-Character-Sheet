@@ -167,3 +167,25 @@ export function calcMeleeStrengthMultiplier(
 		default: return 1;
 	}
 }
+
+/**
+ * Spell save DC: 10 + spell level + casting ability modifier.
+ */
+export function calcSpellDC(spellLevel: number, castingAbilityMod: number): number {
+	return 10 + spellLevel + castingAbilityMod;
+}
+
+/**
+ * Concentration check DC for casting defensively: 15 + double the spell level.
+ */
+export function calcConcentrationDC(spellLevel: number): number {
+	return 15 + 2 * spellLevel;
+}
+
+/**
+ * Total spell range in meters: raw base range plus the per-level
+ * increase multiplied by the caster level.
+ */
+export function calcTotalSpellRange(rangeBase: number, rangePerLevel: number, casterLevel: number): number {
+	return rangeBase + rangePerLevel * casterLevel;
+}

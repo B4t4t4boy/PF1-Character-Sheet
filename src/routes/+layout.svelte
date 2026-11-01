@@ -9,6 +9,7 @@
 	import Classes from '$lib/components/Classes.svelte';
 	import Skills from '$lib/components/Skills.svelte';
 	import Combat from '$lib/components/Combat.svelte';
+	import Spells from '$lib/components/Spells.svelte';
 
 	let character = $state(createCharacterState());
 	let currentTab = $state('main');
@@ -55,7 +56,7 @@
 		{:else if currentTab === 'combat'}
 			<Combat {character} />
 		{:else if currentTab === 'spells'}
-			<div class="section-card p-3 text-sm text-ink-light italic">Spells tab — coming soon</div>
+			<Spells {character} />
 		{:else if currentTab === 'gear'}
 			<div class="section-card p-3 text-sm text-ink-light italic">Gear tab (inventory, equipment) — coming soon</div>
 		{/if}
