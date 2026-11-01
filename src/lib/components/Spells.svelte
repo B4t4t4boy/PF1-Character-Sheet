@@ -108,14 +108,6 @@
 						</div>
 					{/each}
 				</div>
-				<div class="grid grid-cols-[4rem_1fr_1fr_1fr_1fr_1fr] gap-0.5 items-center text-xs px-1 pt-1 mt-1 border-t border-warm-300 font-bold">
-					<div class="text-ink text-left uppercase text-[10px]">Total</div>
-					<div></div>
-					<div></div>
-					<div></div>
-					<div class="text-center text-burgundy">{character.spellsPerDayInfo.totalSlots}</div>
-					<div></div>
-				</div>
 				<div class="text-2xs text-ink-light italic mt-1">
 					Base slots from the official class table. A high casting ability grants +1 bonus slot per spell level
 					from 1st up to your modifier ({formatModifier(character.castingAbilityMod)}). Spells Known applies to

@@ -149,13 +149,11 @@ export function createCharacterState(initial?: CharacterData) {
 				};
 			})
 			.filter((entry) => entry !== null);
-		const totalSlots = levels.reduce((sum, entry) => sum + entry.total, 0);
 		return {
 			className: detectedCastingClass.name,
 			classLevel,
 			hasKnownTable: knownTable !== undefined,
-			levels,
-			totalSlots
+			levels
 		};
 	});
 
