@@ -121,3 +121,49 @@ export function calcTotalAC(
 ): number {
 	return baseAC + armorMod + shieldMod + calcMaxDexBonus(maxDexBonus, dexMod) + sizeMod + naturalMod + deflectionMod + miscMod;
 }
+
+/**
+ * Iterative attack BAB values for a full attack: one extra attack for every
+ * 5 points of BAB, each at a cumulative -5 penalty
+ * (e.g. BAB +6 -> [+6, +1]; BAB +16 -> [+16, +11, +6, +1]; BAB +20 -> [+20, +15, +10, +5]).
+ */
+export function iterativeAttackBonuses(bab: number): number[] {
+	const bonuses: number[] = [];
+	for (let b = bab; b > 0; b -= 5) {
+		bonuses.push(b);
+	}
+	return bonuses.length > 0 ? bonuses : [0];
+}
+
+/**
+ * Formatted full-attack line for a BAB plus any modifiers (ability,
+ * enhancement, misc), e.g. "+6/+1" or "+11/+6/+1".
+ */
+export function formatAttackLine(bab: number, ...mods: number[]): string {
+	const totalMods = mods.reduce((sum, mod) => sum + mod, 0);
+	return iterativeAttackBonuses(bab)
+		.map((bonus) => formatModifier(bonus + totalMods))
+		.join('/');
+}
+
+/**
+ * Format a damage expression such as "1d8+3" (or "1d8" when the bonus is 0).
+ */
+export function formatDamage(dice: string, bonus: number): string {
+	if (!dice) return formatModifier(bonus);
+	return bonus === 0 ? dice : `${dice}${formatModifier(bonus)}`;
+}
+
+/**
+ * Strength multiplier applied to melee weapon damage by grip:
+ * one-handed x1, two-handed x1.5, off-hand x0.5 (rounded down when applied).
+ */
+export function calcMeleeStrengthMultiplier(
+	handedness: 'one-handed' | 'two-handed' | 'off-hand'
+): number {
+	switch (handedness) {
+		case 'two-handed': return 1.5;
+		case 'off-hand': return 0.5;
+		default: return 1;
+	}
+}

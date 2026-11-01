@@ -1,5 +1,34 @@
 import { db, type CharacterEntity } from '$lib/db';
 
+/**
+ * A single weapon row on the Combat tab.
+ */
+export interface WeaponData {
+	id: string;
+	name: string;
+	/** Melee weapons add Str by default, ranged weapons add Dex; unusual cases (finesse, thrown) stay user-selectable. */
+	attackType: 'melee' | 'ranged';
+	attackAbility: 'str' | 'dex';
+	/** Magic enhancement bonus; applies to both attack and damage. */
+	enhancement: number;
+	/** Other attack modifiers (feats, buffs, penalties, etc.). */
+	miscAttack: number;
+	/** Damage dice expression, e.g. "1d8". */
+	damageDice: string;
+	/** Ability added to damage; "none" for most ranged weapons. */
+	damageAbility: 'str' | 'dex' | 'none';
+	/** Grip used — affects the Strength multiplier on melee damage. */
+	handedness: 'one-handed' | 'two-handed' | 'off-hand';
+	/** Other damage modifiers (weapon specialization, buffs, etc.). */
+	miscDamage: number;
+	/** Critical line, e.g. "19-20/x2". */
+	critical: string;
+	/** Range increment in meters; 0 for melee-only weapons. */
+	rangeIncrement: number;
+	ammunition: string;
+	notes: string;
+}
+
 export interface CharacterData {
 	characterName: string;
 	classLevel: string;
@@ -58,16 +87,7 @@ export interface CharacterData {
 		willProgression: boolean;
 		skillPointsPerLevel: number;
 	}>;
-	weapons: Array<{
-		name: string;
-		attackBonus: number;
-		damage: string;
-		critical: string;
-		type: string;
-		range: string;
-		ammunition: string;
-		notes: string;
-	}>;
+	weapons: WeaponData[];
 	spells: Array<{
 		level: number;
 		name: string;
@@ -131,6 +151,82 @@ export function createDefaultCharacter(): CharacterData {
 	};
 }
 
+function newWeaponId(): string {
+	return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+		? crypto.randomUUID()
+		: `w-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/** Creates a blank weapon row with sensible defaults for its attack type. */
+export function createDefaultWeapon(attackType: 'melee' | 'ranged'): WeaponData {
+	return {
+		id: newWeaponId(),
+		name: '',
+		attackType,
+		attackAbility: attackType === 'melee' ? 'str' : 'dex',
+		enhancement: 0,
+		miscAttack: 0,
+		damageDice: attackType === 'melee' ? '1d6' : '1d8',
+		damageAbility: attackType === 'melee' ? 'str' : 'none',
+		handedness: 'one-handed',
+		miscDamage: 0,
+		critical: '20/x2',
+		rangeIncrement: attackType === 'ranged' ? 30 : 0,
+		ammunition: '',
+		notes: ''
+	};
+}
+
+function asNumber(value: unknown, fallback: number): number {
+	return typeof value === 'number' && !Number.isNaN(value) ? value : fallback;
+}
+
+function asString(value: unknown, fallback: string): string {
+	return typeof value === 'string' ? value : fallback;
+}
+
+/** Upgrades a persisted weapon (possibly from an older schema) to the current WeaponData shape. */
+function normalizeWeapon(raw: Record<string, unknown>): WeaponData {
+	const attackType = raw.attackType === 'ranged' ? 'ranged' : 'melee';
+	const legacyRange = parseInt(asString(raw.range, ''), 10);
+	return {
+		id: asString(raw.id, '') || newWeaponId(),
+		name: asString(raw.name, ''),
+		attackType,
+		attackAbility: raw.attackAbility === 'dex' || raw.attackAbility === 'str'
+			? raw.attackAbility
+			: attackType === 'ranged' ? 'dex' : 'str',
+		enhancement: asNumber(raw.enhancement, 0),
+		// Older saves stored a single hand-entered total as "attackBonus".
+		miscAttack: asNumber(raw.miscAttack, asNumber(raw.attackBonus, 0)),
+		damageDice: asString(raw.damageDice, '') || asString(raw.damage, '') || (attackType === 'melee' ? '1d6' : '1d8'),
+		damageAbility: raw.damageAbility === 'str' || raw.damageAbility === 'dex' || raw.damageAbility === 'none'
+			? raw.damageAbility
+			: attackType === 'melee' ? 'str' : 'none',
+		handedness: raw.handedness === 'two-handed' || raw.handedness === 'off-hand'
+			? raw.handedness
+			: 'one-handed',
+		miscDamage: asNumber(raw.miscDamage, 0),
+		critical: asString(raw.critical, '') || '20/x2',
+		rangeIncrement: asNumber(
+			raw.rangeIncrement,
+			Number.isNaN(legacyRange) ? (attackType === 'ranged' ? 30 : 0) : legacyRange
+		),
+		ammunition: asString(raw.ammunition, ''),
+		notes: asString(raw.notes, '')
+	};
+}
+
+/** Normalizes loaded/imported data so older saves keep working with the current schema. */
+export function normalizeCharacterData(data: CharacterData): CharacterData {
+	return {
+		...data,
+		weapons: (Array.isArray(data.weapons) ? data.weapons : []).map(
+			(w) => normalizeWeapon(w as unknown as Record<string, unknown>)
+		)
+	};
+}
+
 export async function saveCharacter(name: string, data: CharacterData): Promise<number> {
 	const existing = await db.characters.where('name').equals(name).first();
 	const now = new Date();
@@ -154,7 +250,7 @@ export async function saveCharacter(name: string, data: CharacterData): Promise<
 export async function loadCharacter(id: number): Promise<CharacterData | null> {
 	const entity = await db.characters.get(id);
 	if (!entity) return null;
-	return entity.data as unknown as CharacterData;
+	return normalizeCharacterData(entity.data as unknown as CharacterData);
 }
 
 export async function loadCharacterByName(name: string): Promise<CharacterEntity | undefined> {
@@ -176,5 +272,5 @@ export function exportToJson(data: CharacterData): string {
 }
 
 export function importFromJson(json: string): CharacterData {
-	return JSON.parse(json) as CharacterData;
+	return normalizeCharacterData(JSON.parse(json) as CharacterData);
 }

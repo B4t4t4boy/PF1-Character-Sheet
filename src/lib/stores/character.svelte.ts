@@ -1,4 +1,9 @@
-import { calcModifier, calcBAB, calcCMB, calcCMD, calcSave, calcTotalAC } from '$lib/utils/math';
+import { calcModifier, calcBAB, calcCMB, calcCMD, calcSave,
+	calcTotalAC,
+	formatAttackLine,
+	formatDamage,
+	calcMeleeStrengthMultiplier
+} from '$lib/utils/math';
 import { createDefaultCharacter, type CharacterData } from '$lib/utils/persistence';
 import { skills as skillDefs, type SkillDefinition } from '$lib/data/skills';
 
@@ -43,6 +48,38 @@ export function createCharacterState(initial?: CharacterData) {
 	// --- Derived initiative ---
 	const initiative = $derived(dexMod + data.initiative.misc);
 
+	// --- Derived basic attacks (melee = BAB + STR, ranged = BAB + DEX) ---
+	const meleeAttackTotal = $derived(totalBAB + strMod);
+	const rangedAttackTotal = $derived(totalBAB + dexMod);
+	const meleeAttackLine = $derived(formatAttackLine(totalBAB, strMod));
+	const rangedAttackLine = $derived(formatAttackLine(totalBAB, dexMod));
+
+	// --- Derived weapon attack and damage lines ---
+	const weaponAttacks = $derived(
+		data.weapons.map((weapon) => {
+			const attackAbilityMod = weapon.attackAbility === 'dex' ? dexMod : strMod;
+			const attackMods = attackAbilityMod + weapon.enhancement + weapon.miscAttack;
+			const damageAbilityMod = weapon.damageAbility === 'str'
+				? strMod
+				: weapon.damageAbility === 'dex'
+					? dexMod
+					: 0;
+			const strengthMultiplier = weapon.attackType === 'melee' && weapon.damageAbility === 'str'
+				? calcMeleeStrengthMultiplier(weapon.handedness)
+				: 1;
+			const damageBonus = Math.floor(damageAbilityMod * strengthMultiplier)
+				+ weapon.enhancement
+				+ weapon.miscDamage;
+			return {
+				id: weapon.id,
+				attackTotal: totalBAB + attackMods,
+				attackLine: formatAttackLine(totalBAB, attackMods),
+				damage: formatDamage(weapon.damageDice, damageBonus),
+				damageBonus
+			};
+		})
+	);
+
 	// --- Derived total HP from classes ---
 	const totalMaxHP = $derived(
 		data.classes.reduce((sum, cls) => {
@@ -84,6 +121,11 @@ export function createCharacterState(initial?: CharacterData) {
 		get willSave() { return willSave; },
 		get totalAC() { return totalAC; },
 		get initiative() { return initiative; },
+		get meleeAttackTotal() { return meleeAttackTotal; },
+		get rangedAttackTotal() { return rangedAttackTotal; },
+		get meleeAttackLine() { return meleeAttackLine; },
+		get rangedAttackLine() { return rangedAttackLine; },
+		get weaponAttacks() { return weaponAttacks; },
 		get totalMaxHP() { return totalMaxHP; },
 		get skillTotals() { return skillTotals; },
 	};
