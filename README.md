@@ -1,15 +1,6 @@
-# sv
+# PF1-Character-Sheet
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
-
-## Creating a project
-
-If you're seeing this, you've probably already done this step. Congrats!
-
-```sh
-# create a new project
-npx sv create my-app
-```
+A Pathfinder 1st Edition character sheet, built with SvelteKit, Svelte 5 and UnoCSS. Works fully offline — characters are stored in your browser.
 
 ## Developing
 
@@ -33,3 +24,11 @@ npm run build
 You can preview the production build with `npm run preview`.
 
 > To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+
+## License
+
+Copyright © 2026 B4t4t4boy
+
+This project's source code is licensed under the [PolyForm Noncommercial License 1.0.0](./LICENSE) — see the [LICENSE](./LICENSE) file for the full terms. In short: you are free to use, study, modify, and share this project for **noncommercial purposes** (personal use, education, research, hobby projects, nonprofits), but **commercial use is not permitted**.
+
+This is an unofficial fan tool. Pathfinder is a trademark of Paizo Inc.; the game mechanics implemented here are not affiliated with or endorsed by Paizo.
